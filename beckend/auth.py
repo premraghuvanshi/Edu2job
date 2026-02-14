@@ -72,7 +72,7 @@ def get_user_profile(user_id):
     try:
 
         cursor.execute('''
-            SELECT u.name, u.email, e.degree, e.specialization, e.cgpa, e.certificates
+            SELECT u.name, u.email, e.degree, e.specialization, e.cgpa, e.certificates , e.year_of_comp
                        FROM USER u
                        LEFT JOIN EDUCATION e ON u.user_id = e.user_id
                        WHERE u.user_id=?
@@ -88,7 +88,7 @@ def get_user_profile(user_id):
 
 
 
-def save_education(user_id, degree, specialization, cgpa, certificates=""):
+def save_education(user_id, degree, specialization, cgpa, year, certificates="",):
     conn=sqlite3.connect("data/storage.db")
     cursor=conn.cursor()
 
@@ -99,14 +99,14 @@ def save_education(user_id, degree, specialization, cgpa, certificates=""):
         if exists:
             cursor.execute('''
                 UPDATE EDUCATION
-                SET degree=?, specialization=?, cgpa=?, certificates=?
+                SET degree=?, specialization=?, cgpa=?, year_of_comp=? , certificates=?
                 WHERE user_id=?          
-            ''',(degree, specialization, cgpa, certificates, user_id))
+            ''',(degree, specialization, cgpa, year ,certificates,  user_id))
         else:
             cursor.execute("""
-                INSERT INTO EDUCATION (user_id, degree, specialization, cgpa, certificates )
-                VALUES (?,?,?,?,?)          
-            """, (user_id, degree, specialization, cgpa, certificates))
+                INSERT INTO EDUCATION (user_id, degree, specialization, cgpa, certificates ,year_of_comp )
+                VALUES (?,?,?,?,?,?)          
+            """, (user_id, degree, specialization, cgpa, certificates, year))
         conn.commit()
         return True
     except sqlite3.Error as e:

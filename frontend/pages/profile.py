@@ -11,20 +11,21 @@ user_data= get_user_profile(user_id)
 st.title("User Profile")
 
 if user_data:
-    name, email, deg, spec, cgpa, certs = user_data
+    name, email, deg, spec, cgpa, certs , year= user_data
 
     st.subheader("Personal Information")
-    st.write(f"**Name:**{name}")
-    st .write(f"**Email:**{email}")
+    st.write(f"**Name:** {name}")
+    st.write(f"**Email:** {email}")
 
     st.markdown("---")
 
     st.subheader("Education Background")
     if deg :
-        st.write(f"**Degree:**{deg}")
-        st.write(f"**Specialization:**{spec}")
-        st.write(f"**CGPA:**{cgpa}")
-        st.write(f"**Certificates:**{certs if certs else "None listed"}")
+        st.write(f"**Degree:** {deg}")
+        st.write(f"**Specialization:** {spec}")
+        st.write(f"**CGPA:** {cgpa}")
+        st.write(f"**Certificates:** {certs if certs else "None listed"}")
+        st.write(f"**Year of Completion** {int(year)}")
     else:
         st.info("NO education details found.")
 
@@ -41,9 +42,11 @@ if user_data:
 
             new_certs=st.text_input("Certificates(Optional)", value=certs if certs else "")
 
+            new_year=st.number_input("Year of Completion", min_value=2020, max_value=2031, step=1,value=int(year) if year else 2020)
+
             if st.form_submit_button("Save Changes"):
                 if new_spec and new_cgpa>0:
-                    success=save_education(user_id, new_deg, new_spec, new_cgpa, new_certs)
+                    success=save_education(user_id, new_deg, new_spec, new_cgpa,new_year, new_certs)
                     if success:
                         st.success("Profile updated")
                         st.rerun()

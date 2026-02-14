@@ -26,6 +26,7 @@ def create_db():
             specialization TEXT NOT NULL,
             CGPA REAL NOT NULL,
             certificates TEXT,
+            year_of_comp REAL NOT NULL,
             FOREIGN KEY (user_id) REFERENCES USER (user_id)
         )
     ''')
