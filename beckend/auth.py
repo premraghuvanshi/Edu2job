@@ -1,10 +1,15 @@
 import sqlite3
 import bcrypt
-
 import jwt
+import os
 from datetime import datetime, timedelta, timezone
+from google.oauth2 import id_token
+from google.auth.transport import requests
+from google_auth_oauthlib.flow import Flow
+from dotenv import load_dotenv
 
-SECRET_KEY="Prem@123-Project-Edu2job"
+load_dotenv()
+SUPER_KEY=os.getenv("SUPER_KEY")
 
 
 def register_user(name , email , password):
@@ -114,3 +119,84 @@ def save_education(user_id, degree, specialization, cgpa, year, certificates="",
         return False
     finally:
         conn.close()
+
+
+# This variable must match the filename you just saved
+CLIENT_SECRETS_FILE = "client_secret.json"
+
+# Define the data permissions we are requesting
+SCOPES = [
+    "openid", 
+    "https://www.googleapis.com/auth/userinfo.email", 
+    "https://www.googleapis.com/auth/userinfo.profile"
+]
+
+def get_google_auth_url():
+    """Reads the JSON file and generates the Google Login URL."""
+    flow = Flow.from_client_secrets_file(
+        CLIENT_SECRETS_FILE,
+        scopes=SCOPES,
+        redirect_uri="http://localhost:8501" # Must match Google Console exactly
+    )
+    # prompt='consent' ensures the user sees the select account screen every time
+    auth_url, _ = flow.authorization_url(prompt='consent')
+    return auth_url
+
+
+def verify_google_token(code):
+    """Exchanges the authorization code for user profile data."""
+    flow = Flow.from_client_secrets_file(
+        CLIENT_SECRETS_FILE,
+        scopes=SCOPES,
+        redirect_uri="http://localhost:8501"
+    )
+    # Exchange the 'code' from the URL for actual credentials
+    flow.fetch_token(code=code)
+    credentials = flow.credentials
+    # Add clock_skew_in_seconds to allow a 10-second difference
+    user_info = id_token.verify_oauth2_token(
+        credentials.id_token, 
+        requests.Request(), 
+        credentials.client_id,
+        clock_skew_in_seconds=10  
+    )
+    
+    # Verify the identity token provided by Google
+   
+    return user_info  # This dictionary contains 'email' and 'name'
+
+
+
+
+def get_or_create_google_user(email, name):
+    """
+    Checks if a Google user exists in the DB. 
+    If not, creates a new record for them.
+    """
+    # Connect to your existing database
+    conn = sqlite3.connect('data/storage.db')
+    cursor = conn.cursor()
+    
+    # Check if the email already exists
+    cursor.execute("SELECT user_id, role FROM USER WHERE email=?", (email,))
+    user = cursor.fetchone()
+    
+    if not user:
+        # If user doesn't exist, register them with a placeholder password
+        # We use 'GOOGLE_AUTH' to indicate they don't have a local password.
+        cursor.execute(
+            "INSERT INTO USER (name, email, password_hash, role) VALUES (?, ?, ?, ?)",
+            (name, email, 'GOOGLE_AUTH', 'user')
+        )
+        conn.commit()
+        
+        # Retrieve the newly created user's ID
+        cursor.execute("SELECT user_id, role FROM USER WHERE email=?", (email,))
+        user = cursor.fetchone()
+    
+    conn.close()
+    return user[0], user[1]  # Returns (user_id, role)
+
+
+
+
