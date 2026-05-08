@@ -67,7 +67,7 @@ def generate_token(user_id,role):
         'exp': datetime.now(timezone.utc) + timedelta(hours=24)
 
     }
-    token=jwt.encode(payload,SECRET_KEY,algorithm="HS256")
+    token=jwt.encode(payload,SUPER_KEY,algorithm="HS256")
     return token
 
 def get_user_profile(user_id):
@@ -77,11 +77,12 @@ def get_user_profile(user_id):
     try:
 
         cursor.execute('''
-            SELECT u.name, u.email, e.degree, e.specialization, e.cgpa, e.certificates , e.year_of_comp
-                       FROM USER u
-                       LEFT JOIN EDUCATION e ON u.user_id = e.user_id
-                       WHERE u.user_id=?
-        ''',(user_id,))
+        SELECT u.name, u.email, e.degree, e.specialization, e.cgpa, 
+               e.skills, e.year_of_comp, e.linkedin, e.certificates
+        FROM USER u
+        LEFT JOIN EDUCATION e ON u.user_id = e.user_id
+        WHERE u.user_id=?
+    ''',(user_id,))
 
         result=cursor.fetchone()
         return result
@@ -93,29 +94,28 @@ def get_user_profile(user_id):
 
 
 
-def save_education(user_id, degree, specialization, cgpa, year, certificates="",):
-    conn=sqlite3.connect("data/storage.db")
-    cursor=conn.cursor()
-
+def save_education(user_id, degree, specialization, cgpa, year, skills, linkedin, certificates):
+    conn = sqlite3.connect("data/storage.db")
+    cursor = conn.cursor()
     try:
         cursor.execute("SELECT 1 FROM EDUCATION WHERE user_id=?", (user_id,))
-        exists=cursor.fetchone()
+        exists = cursor.fetchone()
 
         if exists:
             cursor.execute('''
                 UPDATE EDUCATION
-                SET degree=?, specialization=?, cgpa=?, year_of_comp=? , certificates=?
+                SET degree=?, specialization=?, cgpa=?, year_of_comp=?, skills=?, linkedin=?, certificates=?
                 WHERE user_id=?          
-            ''',(degree, specialization, cgpa, year ,certificates,  user_id))
+            ''', (degree, specialization, cgpa, year, skills, linkedin, certificates, user_id))
         else:
             cursor.execute("""
-                INSERT INTO EDUCATION (user_id, degree, specialization, cgpa, certificates ,year_of_comp )
-                VALUES (?,?,?,?,?,?)          
-            """, (user_id, degree, specialization, cgpa, certificates, year))
+                INSERT INTO EDUCATION (user_id, degree, specialization, cgpa, skills, linkedin, certificates, year_of_comp)
+                VALUES (?,?,?,?,?,?,?,?)          
+            """, (user_id, degree, specialization, cgpa, skills, linkedin, certificates, year))
         conn.commit()
         return True
     except sqlite3.Error as e:
-        print(f"Error saving education:{e}")
+        print(f"Error saving education: {e}")
         return False
     finally:
         conn.close()
@@ -169,28 +169,24 @@ def verify_google_token(code):
 
 
 def get_or_create_google_user(email, name):
-    """
-    Checks if a Google user exists in the DB. 
-    If not, creates a new record for them.
-    """
-    # Connect to your existing database
+   
+    
     conn = sqlite3.connect('data/storage.db')
     cursor = conn.cursor()
     
-    # Check if the email already exists
+    
     cursor.execute("SELECT user_id, role FROM USER WHERE email=?", (email,))
     user = cursor.fetchone()
     
     if not user:
-        # If user doesn't exist, register them with a placeholder password
-        # We use 'GOOGLE_AUTH' to indicate they don't have a local password.
+       
         cursor.execute(
             "INSERT INTO USER (name, email, password_hash, role) VALUES (?, ?, ?, ?)",
             (name, email, 'GOOGLE_AUTH', 'user')
         )
         conn.commit()
         
-        # Retrieve the newly created user's ID
+        
         cursor.execute("SELECT user_id, role FROM USER WHERE email=?", (email,))
         user = cursor.fetchone()
     
@@ -200,3 +196,25 @@ def get_or_create_google_user(email, name):
 
 
 
+def reset_password(email, new_password):
+    email = email.strip()
+    conn = sqlite3.connect("data/storage.db")
+    cursor = conn.cursor()
+    
+    try:
+        # 1. Check if user exists
+        cursor.execute('SELECT 1 FROM USER WHERE email=?', (email,))
+        if not cursor.fetchone():
+            return {"status": "error", "message": "User not found"}
+
+        # 2. Hash the new password
+        hashed_pw = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt())
+
+        # 3. Update the database
+        cursor.execute('UPDATE USER SET password_hash=? WHERE email=?', (hashed_pw, email))
+        conn.commit()
+        return {"status": "success", "message": "Password updated successfully!"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    finally:
+        conn.close()

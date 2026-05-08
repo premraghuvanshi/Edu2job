@@ -44,11 +44,11 @@ def predict():
         user_profile = fetch_user_education(user_id)
 
         if user_profile and model:
-            # 1. Encoding
+            
             d_enc = encoders["Degree"].transform([user_profile['degree']])[0]
             s_enc = encoders["Specialization"].transform([user_profile['specialization']])[0]
 
-            # 2. DataFrame Construction
+            
             feature_names = ['Degree', 'Specialization', 'CGPA', 'YearOfCompletion']
             input_df = pd.DataFrame([[
                 d_enc, 
@@ -57,14 +57,14 @@ def predict():
                 user_profile['year_of_comp']
             ]], columns=feature_names)
 
-            # 3. Inference
+            
             prediction = model.predict(input_df)[0]
             job_role = encoders['JobRole'].inverse_transform([prediction])[0]
 
             probs = model.predict_proba(input_df)[0]
             confidence = float(max(probs))
 
-            # 4. Save to Database
+           
             try:
                 conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
@@ -85,8 +85,8 @@ def predict():
             st.warning("Ensure your profile is updated.")
 
     except ValueError:
-        # Corrected syntax here
-        st.error("⚠️ **Profile Value Error:** Your Degree or Specialization is not recognized by our AI model.")
+        
+        st.error("**Profile Value Error:** Your Degree or Specialization is not recognized by our AI model.")
         st.info("Please update your profile using the dropdown menus to ensure compatibility.")
     except Exception as e:
         st.error(f"An unexpected error occurred: {e}")
