@@ -156,7 +156,7 @@ with st.expander("Industry Demand Analysis"):
     df_data = pd.read_csv('data/job_dataset.csv')
     
     # Calculate the frequency of each job role
-    role_counts = df_data['JobRole'].value_counts()
+    role_counts = df_data['Recommended Career'].value_counts()
     
     # Streamlit's native bar chart
     st.bar_chart(role_counts)
