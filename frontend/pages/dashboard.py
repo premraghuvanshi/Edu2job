@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
-from beckend.preprocess import  predict , get_history
+
+# Fixed import to match the actual refactored backend filename
+from beckend.preprocess import predict, get_history
+
 def inject_ultra_premium_theme():
     st.markdown("""
     <style>
@@ -74,8 +77,8 @@ def inject_ultra_premium_theme():
         /* 6. BUTTONS: EMERALD GRADIENT */
         div.stButton > button {
             width: 100%;
-            background: #020617 !important; /* Deep dark background */
-            color: #f8fafc !important; /* Light text */
+            background: #020617 !important;
+            color: #f8fafc !important;
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
             padding: 14px;
             border-radius: 12px;
@@ -87,13 +90,12 @@ def inject_ultra_premium_theme():
 
         div.stButton > button:hover {
             background: #020617 !important;
-            border-color: #10b981 !important; /* Lite Emerald glow border */
-            color: #10b981 !important; /* Text also shifts slightly to match */
-            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); /* Lite glow effect */
+            border-color: #10b981 !important;
+            color: #10b981 !important;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
             transform: translateY(-2px);
         }
 
-        /* Specifically for Primary buttons if used */
         div.stButton > button[kind="primary"] {
             background: #020617 !important;
             border: 1px solid rgba(16, 185, 129, 0.3) !important;
@@ -110,88 +112,77 @@ def inject_ultra_premium_theme():
             border-bottom-color: #10b981 !important;
         }
 
-        /* Hide Default Sidebar Nav */
+        /* 8. HIDE SIDEBAR NAV */
         [data-testid="stSidebarNav"] { display: none; }
     </style>
     """, unsafe_allow_html=True)
 
+# ==========================================
+# 1. INITIALIZATION & AUTHENTICATION
+# ==========================================
 inject_ultra_premium_theme()
 
-
-if 'token' not in st.session_state:
-    st.error("Please login first!")
+if 'user_id' not in st.session_state:
+    st.error("Authentication required. Please log in.")
     if st.button("Return to Login"):
         st.switch_page('app.py')
     st.stop()
-    
-st.title("User Dashboard")
-st.markdown("---")
-st.sidebar.title(f"Hi,{st.session_state.get('user_name','Student')}")
+
+# ==========================================
+# 2. SIDEBAR NAVIGATION
+# ==========================================
+st.sidebar.title(f"Hi, {st.session_state.get('user_name', 'Student')}")
 st.sidebar.markdown("---")
 
-if st.sidebar.button("Dashboard Home", use_container_width=True):
+if st.sidebar.button("Dashboard Home", width="stretch"):
     st.rerun()
-if st.sidebar.button("View profile",use_container_width=True):
+
+if st.sidebar.button("View Profile", width="stretch"):
     st.switch_page("pages/profile.py")
 
 st.sidebar.markdown("---")
-if st.sidebar.button("Logout", use_container_width=True, type="secondary"):
+
+if st.sidebar.button("Logout", width="stretch", type="secondary"):
     st.session_state.clear()
     st.switch_page("app.py")
 
-
-
-
-if "prediction" in st.session_state:
-        st.info(f"**Last Prediction:** {st.session_state['prediction']}")
+# ==========================================
+# 3. MAIN DASHBOARD AREA
+# ==========================================
+st.title("User Dashboard")
+st.markdown("---")
 
 if st.button("Predict My Job Role", type="primary"):
-    predict()
+    with st.spinner("Analyzing profile and computing exact probability distribution..."):
+        predict()
+        
 st.markdown("---")
-with st.expander("Industry Demand Analysis"):
-  st.write("This chart shows the distribution of career paths available in our current dataset.")
 
-  try:
-    # Use relative path from root
-    df_data = pd.read_csv('data/job_dataset.csv')
-    
-    # Calculate the frequency of each job role
-    role_counts = df_data['Recommended Career'].value_counts()
-    
-    # Streamlit's native bar chart
-    st.bar_chart(role_counts)
-    
-    # Optional: Display as a table for clarity
-    with st.expander("See Raw Distribution Data"):
-        st.write(role_counts)
+# ==========================================
+# 4. ANALYTICS & RESULTS PANELS
+# ==========================================
+with st.expander("Personalized AI Career Match", expanded=True):
+    if "ai_match_graph_data" in st.session_state:
+        st.write("This chart indicates the mathematical alignment of your profile against available career paths.")
+        st.bar_chart(
+            data=st.session_state["ai_match_graph_data"],
+            x="Job Role",
+            y="Match Percentage",
+            color="#10b981",
+            width="stretch"
+        )
+    else:
+        st.info("Click the 'Predict My Job Role' button to generate your personalized distribution.")
 
-  except FileNotFoundError:
-    st.warning("Dataset not found.")
-with st.expander("View Prediction History",expanded=False):
-    history_df=get_history(st.session_state['user_id'])
+with st.expander("View Prediction History", expanded=False):
+    history_df = get_history(st.session_state['user_id'])
 
     if not history_df.empty:
-        history_df.columns=['Recommended Role','Confidence', 'Timestamp']
-
+        history_df.columns = ['Recommended Role', 'Confidence', 'Timestamp']
         st.dataframe(
             history_df.style.format({"Confidence": "{:.2%}"}),
-            use_container_width=True,
+            width="stretch",
             hide_index=True
         )
     else:
-        st.info("No history found.")
-
-
-
-
-
-
-
-    
-st.markdown("""
-    <style>
-        [data-testid="stSidebarNav"] {
-            display: none;
-        }
-    </style>
-""", unsafe_allow_html=True)
+        st.info("No prediction history found on this account.")
