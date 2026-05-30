@@ -2,22 +2,38 @@ import sqlite3
 import bcrypt
 import jwt
 import os
+import json
+import urllib.parse
+import requests as http_requests
 from datetime import datetime, timedelta, timezone
 from google.oauth2 import id_token
 from google.auth.transport import requests
-from google_auth_oauthlib.flow import Flow
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# ==========================================
+# 1. CONFIGURATION & CONSTANTS
+# ==========================================
+db_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'storage.db')
+
+REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8501")
 SUPER_KEY = os.getenv("SUPER_KEY")
 
+SCOPES = [
+    "openid", 
+    "https://www.googleapis.com/auth/userinfo.email", 
+    "https://www.googleapis.com/auth/userinfo.profile"
+]
+
+# ==========================================
+# 2. CORE AUTHENTICATION
+# ==========================================
 def register_user(name, email, password):
-    # Strip spaces and convert to lowercase for case-insensitive logins
     email = email.strip().lower()
-    conn = sqlite3.connect('data/storage.db')
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     try:
-        # CRITICAL FIX: Decode the bcrypt bytes to a UTF-8 string before saving
         hashed_pw = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
         cursor.execute('''
@@ -25,7 +41,6 @@ def register_user(name, email, password):
             VALUES(?,?,?,?)
         ''', (name, email, hashed_pw, 'user'))
         conn.commit()
-        print("User registered successfully")
         return True 
     except sqlite3.IntegrityError:
         print("Email already exists.")
@@ -35,7 +50,7 @@ def register_user(name, email, password):
     
 def login_user(email, ent_password):
     email = email.strip().lower()
-    conn = sqlite3.connect("data/storage.db")
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
     cursor.execute('SELECT password_hash, role, user_id , name FROM USER WHERE email=?', (email,))
@@ -48,24 +63,18 @@ def login_user(email, ent_password):
         user_id = result[2]
         user_name = result[3]
         
-        # Normalize the stored hash back to bytes safely
         if isinstance(stored_hash, str):
-            # Safe recovery if the database saved a literal string like "b'$2b$...'"
             if stored_hash.startswith("b'") and stored_hash.endswith("'"):
                 stored_hash = stored_hash[2:-1]
             stored_bytes = stored_hash.encode('utf-8')
         else:
             stored_bytes = stored_hash
 
-        # Verify password using bytes
         if bcrypt.checkpw(ent_password.encode('utf-8'), stored_bytes):
-            print("Login Successful!")
             return {'status': "success", 'role': user_role, "id": user_id, "name": user_name}
         else:
-            print("Invalid Password")
             return {"status": "fail"}
     else:
-        print("User not found")
         return {"status": "fail"}
     
 def generate_token(user_id, role):
@@ -77,8 +86,38 @@ def generate_token(user_id, role):
     token = jwt.encode(payload, SUPER_KEY, algorithm="HS256")
     return token
 
+def reset_password(email, old_password, new_password):
+    email = email.strip().lower()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('SELECT password_hash FROM USER WHERE email=?', (email,))
+        result = cursor.fetchone()
+        
+        if not result:
+            return {"status": "error", "message": "User not found"}
+            
+        stored_hash = result[0]
+        stored_bytes = stored_hash.encode('utf-8') if isinstance(stored_hash, str) else stored_hash
+        
+        if not bcrypt.checkpw(old_password.encode('utf-8'), stored_bytes):
+            return {"status": "error", "message": "Incorrect current password"}
+
+        new_hashed_pw = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        cursor.execute('UPDATE USER SET password_hash=? WHERE email=?', (new_hashed_pw, email))
+        conn.commit()
+        return {"status": "success", "message": "Password updated successfully!"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    finally:
+        conn.close()
+
+# ==========================================
+# 3. DATABASE PROFILE OPERATIONS
+# ==========================================
 def get_user_profile(user_id):
-    conn = sqlite3.connect("data/storage.db")
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     try:
         cursor.execute('''
@@ -97,7 +136,7 @@ def get_user_profile(user_id):
         conn.close()
 
 def save_education(user_id, degree, specialization, cgpa, year, skills, linkedin, certificates):
-    conn = sqlite3.connect("data/storage.db")
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     try:
         cursor.execute("SELECT 1 FROM EDUCATION WHERE user_id=?", (user_id,))
@@ -122,41 +161,67 @@ def save_education(user_id, degree, specialization, cgpa, year, skills, linkedin
     finally:
         conn.close()
 
-CLIENT_SECRETS_FILE = "client_secret.json"
-SCOPES = [
-    "openid", 
-    "https://www.googleapis.com/auth/userinfo.email", 
-    "https://www.googleapis.com/auth/userinfo.profile"
-]
-
+# ==========================================
+# 4. GOOGLE OAUTH INTEGRATION (BULLETPROOF STATELESS FIX)
+# ==========================================
 def get_google_auth_url():
-    flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE,
-        scopes=SCOPES,
-        redirect_uri="http://localhost:8501"
-    )
-    auth_url, _ = flow.authorization_url(prompt='consent')
-    return auth_url
+    secret_json = os.getenv("GOOGLE_CLIENT_SECRET_JSON")
+    if not secret_json:
+        raise ValueError("Missing GOOGLE_CLIENT_SECRET_JSON in environment variables.")
+        
+    secret_dict = json.loads(secret_json)
+    client_config = secret_dict.get("web") or secret_dict.get("installed")
+    
+    if not client_config:
+        raise ValueError("Invalid JSON format. Expected 'web' or 'installed' key.")
+    
+    params = {
+        "client_id": client_config.get("client_id"),
+        "redirect_uri": REDIRECT_URI,
+        "response_type": "code",
+        "scope": " ".join(SCOPES),
+        "access_type": "offline",
+        "prompt": "consent"
+    }
+    
+    url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
+    return url
 
 def verify_google_token(code):
-    flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE,
-        scopes=SCOPES,
-        redirect_uri="http://localhost:8501"
-    )
-    flow.fetch_token(code=code)
-    credentials = flow.credentials
+    secret_json = os.getenv("GOOGLE_CLIENT_SECRET_JSON")
+    if not secret_json:
+        raise ValueError("Missing GOOGLE_CLIENT_SECRET_JSON in environment variables.")
+        
+    secret_dict = json.loads(secret_json)
+    client_config = secret_dict.get("web") or secret_dict.get("installed")
+    
+    token_url = client_config.get("token_uri", "https://oauth2.googleapis.com/token")
+    data = {
+        "code": code,
+        "client_id": client_config.get("client_id"),
+        "client_secret": client_config.get("client_secret"),
+        "redirect_uri": REDIRECT_URI,
+        "grant_type": "authorization_code"
+    }
+    
+    response = http_requests.post(token_url, data=data)
+    response_data = response.json()
+    
+    if "error" in response_data:
+        err_msg = response_data.get('error_description', response_data.get('error'))
+        raise ValueError(f"OAuth Exchange Failed: {err_msg}")
+        
     user_info = id_token.verify_oauth2_token(
-        credentials.id_token, 
+        response_data["id_token"], 
         requests.Request(), 
-        credentials.client_id,
+        client_config["client_id"],
         clock_skew_in_seconds=10  
     )
     return user_info
 
 def get_or_create_google_user(email, name):
     email = email.strip().lower()
-    conn = sqlite3.connect('data/storage.db')
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
     cursor.execute("SELECT user_id, role FROM USER WHERE email=?", (email,))
@@ -173,23 +238,3 @@ def get_or_create_google_user(email, name):
     
     conn.close()
     return user[0], user[1]
-
-def reset_password(email, new_password):
-    email = email.strip().lower()
-    conn = sqlite3.connect("data/storage.db")
-    cursor = conn.cursor()
-    try:
-        cursor.execute('SELECT 1 FROM USER WHERE email=?', (email,))
-        if not cursor.fetchone():
-            return {"status": "error", "message": "User not found"}
-
-        # Decode newly reset passwords to string as well
-        hashed_pw = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-
-        cursor.execute('UPDATE USER SET password_hash=? WHERE email=?', (hashed_pw, email))
-        conn.commit()
-        return {"status": "success", "message": "Password updated successfully!"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-    finally:
-        conn.close()
