@@ -1,5 +1,4 @@
 .env
-*.db
+data/storage.db
+beckend/job_model_v5.pkl
 __pycache__/
-*.pyc
-*.pyo
