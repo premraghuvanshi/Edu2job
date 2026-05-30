@@ -3,8 +3,8 @@ import pandas as pd
 from pathlib import Path
 
 # Correct backend imports
-from beckend.auth import get_user_profile, save_education
-from beckend.parser import extract_raw_text, parse_resume_via_gemini
+from backend.auth import get_user_profile, save_education
+from backend.parser import extract_raw_text, parse_resume_via_gemini
 
 # ==========================================
 # 1. CONFIGURATION & PATHS

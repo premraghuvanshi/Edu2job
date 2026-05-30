@@ -4,7 +4,7 @@ import sqlite3
 from pathlib import Path
 
 # Correct backend import
-from beckend.model_training import train_career_model
+from backend.model_training import train_career_model
 
 # ==========================================
 # 1. CONFIGURATION & PATHS
@@ -13,7 +13,7 @@ from beckend.model_training import train_career_model
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DB_PATH = BASE_DIR / 'data' / 'storage.db'
 CSV_PATH = BASE_DIR / 'data' / 'job_dataset.csv'
-MODEL_PATH = BASE_DIR / 'beckend' / 'job_model_v5.pkl'
+MODEL_PATH = BASE_DIR / 'backend' / 'job_model_v5.pkl'
 
 REQUIRED_COLUMNS = {
     'Education Level', 'Specialization', 'Skills', 

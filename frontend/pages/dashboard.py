@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 # Fixed import to match the actual refactored backend filename
-from beckend.preprocess import predict, get_history
+from backend.preprocess import predict, get_history
 
 def inject_ultra_premium_theme():
     st.markdown("""

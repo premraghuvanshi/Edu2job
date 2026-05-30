@@ -11,7 +11,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics import accuracy_score
 
 # CRITICAL FIX: Import tokenizer from an isolated utils file to ensure stable unpickling
-from beckend.utils import career_tokenizer
+from backend.utils import career_tokenizer
 
 # ==========================================
 # 1. CONFIGURATION & LOGGING
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # Dynamically resolve absolute paths to prevent cloud deployment crashes
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_CSV_PATH = BASE_DIR / 'data' / 'job_dataset.csv'
-MODEL_SAVE_DIR = BASE_DIR / 'beckend'
+MODEL_SAVE_DIR = BASE_DIR / 'backend'
 MODEL_SAVE_PATH = MODEL_SAVE_DIR / 'job_model_v5.pkl'
 
 # ==========================================

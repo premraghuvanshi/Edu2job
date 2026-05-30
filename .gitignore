@@ -1,4 +1,27 @@
+# Security / Secrets
 .env
+.streamlit/secrets.toml
+
+# Virtual Environment
+env/
+venv/
+.venv/
+
+# Database (Prevents uploading live user data)
 data/storage.db
+*.db
+*.sqlite3
+*.sqlite3-journal
+
+# Machine Learning Models (Prevents GitHub size limit blocks)
 beckend/job_model_v5.pkl
+*.pkl
+
+# Python Cache
 __pycache__/
+*.pyc
+*.pyo
+
+# OS Generated Files
+.DS_Store
+Thumbs.db

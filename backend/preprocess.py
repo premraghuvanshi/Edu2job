@@ -5,14 +5,14 @@ import numpy as np
 import streamlit as st
 from pathlib import Path
 from typing import Optional, Dict, Any, Tuple
-from beckend.utils import career_tokenizer
+from backend.utils import career_tokenizer
 
 # ==========================================
 # 1. CONFIGURATION & CONSTANTS
 # ==========================================
 BASE_DIR = Path(__file__).resolve().parent.parent
 DB_PATH = BASE_DIR / 'data' / 'storage.db'
-MODEL_PATH = BASE_DIR / 'beckend' / 'job_model_v5.pkl'
+MODEL_PATH = BASE_DIR / 'backend' / 'job_model_v5.pkl'
 
 
 # ==========================================

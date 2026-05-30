@@ -5,7 +5,7 @@ import streamlit as st
 # Ensure backend module path is accessible
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from beckend.auth import (
+from backend.auth import (
     register_user, 
     login_user, 
     generate_token, 
@@ -118,7 +118,7 @@ def reset_password_dialog():
         elif res_new_pass != res_confirm_pass:
             st.error("New passwords do not match!")
         else:
-            from beckend.auth import reset_password
+            from backend.auth import reset_password
             result = reset_password(res_email, res_old_pass, res_new_pass)
             if result.get("status") == "success":
                 st.success(result["message"])
