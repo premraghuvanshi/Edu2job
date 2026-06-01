@@ -26,13 +26,12 @@ Edu2Job/
 ├── .gitignore               # Exclusions for credentials, DB, and environments
 ├── README.md                # System documentation
 ├── requirements.txt         # Pinned Python dependency versions
-├── app.py                   # Primary Streamlit application entry point
 ├── beckend/                 
 │   ├── model_training.py    # Training pipeline scripts
 │   └── job_model_v5.pkl     # Serialized XGBoost model
 ├── frontend/                
 │   ├── pages/               # Multi-page Streamlit components (Admin, User)
-│   └── assets/              # Static styling files
+│   └── app.py             # Primary Streamlit application entry point
 └── data/                    
     ├── job_dataset.csv      # Base training data
     └── storage.db.example   # Database directory persistence
